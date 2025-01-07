@@ -1,0 +1,3 @@
+fix the influence set problem:
+currently we add SPECIES to the influence set,
+but the updater updates based on REACTION name.
