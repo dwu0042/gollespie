@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"strconv"
+	"strings"
 )
 
 type Reaction struct {
@@ -146,14 +148,87 @@ func valuesum(mapping map[string]float64) float64 {
 	}
 	return total
 }
+func product(vs []float64) float64 {
+	res := 1.0
+	for _, v := range vs {
+		res *= v
+	}
+	return res
+}
+func multiplyStringParse(s string) (float64, []string) {
+	runes := strings.Split(s, "*")
+	var coefs []float64
+	var species []string
+	for _, substr := range runes {
+		if s, err := strconv.ParseFloat(substr, 64); err == nil {
+			coefs = append(coefs, s)
+		} else {
+			species = append(species, substr)
+		}
+	}
+	return product(coefs), species
+}
+
+func parseConfig(rawConfig Config) (map[string]Reaction, map[string]int, float64) {
+
+	runTime := rawConfig.Run.Until
+
+	reactionInfo := make(map[string]Reaction)
+	initialState := make(map[string]int)
+
+	for _, state := range rawConfig.States {
+		initialState[state.Name] = state.Value
+	}
+
+	for _, reaction := range rawConfig.Reactions {
+		_ = reaction
+		var inputCoefs []int
+		var inputSpecies []string
+		var outputCoefs []int
+		var outputSpecies []string
+		rateCoef, rateSpecies := multiplyStringParse(reaction.Rate)
+		for _, inputInfo := range reaction.Input {
+			coef, species := multiplyStringParse(inputInfo)
+			inputCoefs = append(inputCoefs, int(coef))
+			inputSpecies = append(inputSpecies, species...)
+		}
+
+		for _, outputInfo := range reaction.Output {
+			coef, species := multiplyStringParse(outputInfo)
+			outputCoefs = append(outputCoefs, int(coef))
+			outputSpecies = append(outputSpecies, species...)
+		}
+		reactionInfo[reaction.Name] = Reaction{
+			rate:               rateCoef,
+			rateSpecies:        rateSpecies,
+			inputSpeciesCount:  inputCoefs,
+			inputSpecies:       inputSpecies,
+			outputSpeciesCount: outputCoefs,
+			outputSpecies:      outputSpecies,
+		}
+
+	}
+
+	return reactionInfo, initialState, runTime
+}
 
 func main() {
-	reactionInfo := map[string]Reaction{
-		"replication": {rate: 1.0, rateSpecies: []string{"A"}, inputSpecies: []string{"A"}, inputSpeciesCount: []int{1}, outputSpecies: []string{"A"}, outputSpeciesCount: []int{2}},
-		"death":       {rate: 0.8, rateSpecies: []string{"A"}, inputSpecies: []string{"A"}, inputSpeciesCount: []int{1}, outputSpecies: []string{"A"}, outputSpeciesCount: []int{0}},
+
+	rawConfig, err := readConfig("reactions.yaml")
+	if err != nil {
+		panic(err)
 	}
-	initialState := map[string]int{
-		"A": 10,
-	}
-	directMethod(reactionInfo, 100.0, initialState)
+	_ = rawConfig
+	reactionInfo, initialState, runTime := parseConfig(rawConfig)
+	fmt.Println(reactionInfo)
+	fmt.Println(initialState)
+	// reactionInfo := map[string]Reaction{
+	// "replication": {rate: 1.0, rateSpecies: []string{"A"}, inputSpecies: []string{"A"}, inputSpeciesCount: []int{1}, outputSpecies: []string{"A"}, outputSpeciesCount: []int{2}},
+	// "death":       {rate: 0.8, rateSpecies: []string{"A"}, inputSpecies: []string{"A"}, inputSpeciesCount: []int{1}, outputSpecies: []string{}, outputSpeciesCount: []int{}},
+	// }
+	// initialState := map[string]int{
+	// "A": 10,
+	// }
+	// runTime := 100.0
+	directMethod(reactionInfo, runTime, initialState)
 }

@@ -1,10 +1,16 @@
 reactions:
 - name: replication
   rate: 1*A
-  transition: A -> 2*A
+  input: 
+    - A
+  output: 
+    - 2*A 
 - name: death
   rate: 0.8*A
-  transition: A -> 0
+  input:
+    - A
+  output:
+    - 0
 states:
   - name: A
     value: 10
