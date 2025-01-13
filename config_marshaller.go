@@ -47,3 +47,46 @@ func readConfig(filename string) (Config, error) {
 	return yml, nil
 
 }
+
+func parseConfig(rawConfig Config) (map[string]Reaction, map[string]int, float64) {
+
+	runTime := rawConfig.Run.Until
+
+	reactionInfo := make(map[string]Reaction)
+	initialState := make(map[string]int)
+
+	for _, state := range rawConfig.States {
+		initialState[state.Name] = state.Value
+	}
+
+	for _, reaction := range rawConfig.Reactions {
+		_ = reaction
+		var inputCoefs []int
+		var inputSpecies []string
+		var outputCoefs []int
+		var outputSpecies []string
+		rateCoef, rateSpecies := multiplyStringParse(reaction.Rate)
+		for _, inputInfo := range reaction.Input {
+			coef, species := multiplyStringParse(inputInfo)
+			inputCoefs = append(inputCoefs, int(coef))
+			inputSpecies = append(inputSpecies, species...)
+		}
+
+		for _, outputInfo := range reaction.Output {
+			coef, species := multiplyStringParse(outputInfo)
+			outputCoefs = append(outputCoefs, int(coef))
+			outputSpecies = append(outputSpecies, species...)
+		}
+		reactionInfo[reaction.Name] = Reaction{
+			rate:               rateCoef,
+			rateSpecies:        rateSpecies,
+			inputSpeciesCount:  inputCoefs,
+			inputSpecies:       inputSpecies,
+			outputSpeciesCount: outputCoefs,
+			outputSpecies:      outputSpecies,
+		}
+
+	}
+
+	return reactionInfo, initialState, runTime
+}

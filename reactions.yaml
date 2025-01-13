@@ -15,4 +15,4 @@ states:
   - name: A
     value: 10
 run:
-  until: 100
+  until: 20

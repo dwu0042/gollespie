@@ -60,36 +60,6 @@ func NewRatesMapping(reactions map[string]Reaction, state map[string]int) *Rates
 	return &RatesMapping{ratesMap, totalRate}
 }
 
-type InfluenceSet struct {
-	list map[string]struct{}
-}
-
-func (s *InfluenceSet) Has(v string) bool {
-	_, ok := s.list[v]
-	return ok
-}
-func (s *InfluenceSet) Add(v string) {
-	s.list[v] = struct{}{}
-}
-func (s *InfluenceSet) Size() int {
-	return len(s.list)
-}
-func MakeInfluenceSet() *InfluenceSet {
-	s := &InfluenceSet{}
-	s.list = make(map[string]struct{})
-	return s
-}
-func ISetOf(rxn *Reaction) *InfluenceSet {
-	s := MakeInfluenceSet()
-	for _, v := range rxn.inputSpecies {
-		s.Add(v)
-	}
-	for _, v := range rxn.outputSpecies {
-		s.Add(v)
-	}
-	return s
-}
-
 func directMethod(reactions map[string]Reaction, maxTime float64, initialState map[string]int) {
 
 	time := 0.0
@@ -101,11 +71,7 @@ func directMethod(reactions map[string]Reaction, maxTime float64, initialState m
 	// init hazards
 	hazards := NewRatesMapping(reactions, state)
 	// compute influence sets of reactions
-	influenceSets := make(map[string]*InfluenceSet, len(reactions))
-	for k, v := range reactions {
-		influenceSets[k] = ISetOf(&v)
-	}
-
+	influenceSets := MakeInfluenceSets(reactions)
 	for {
 		// draw time of next reaction
 		time += hazards.nextTime()
@@ -131,23 +97,16 @@ func directMethod(reactions map[string]Reaction, maxTime float64, initialState m
 			break
 		}
 		// update the rates of affected reactions
-		for rxnname := range influenceSets[reaction].list {
+		for _, rxnName := range influenceSets[reaction] {
 			// recompute rate and insert
-			newRate := computeRate(reactions[rxnname], state)
-			hazards.insert(rxnname, newRate)
+			newRate := computeRate(reactions[rxnName], state)
+			hazards.insert(rxnName, newRate)
 		}
-		fmt.Println(time, state)
+		fmt.Print(time, ",", state["A"], "\n")
 	}
 
 }
 
-func valuesum(mapping map[string]float64) float64 {
-	var total float64 = 0
-	for _, v := range mapping {
-		total += v
-	}
-	return total
-}
 func product(vs []float64) float64 {
 	res := 1.0
 	for _, v := range vs {
@@ -167,49 +126,6 @@ func multiplyStringParse(s string) (float64, []string) {
 		}
 	}
 	return product(coefs), species
-}
-
-func parseConfig(rawConfig Config) (map[string]Reaction, map[string]int, float64) {
-
-	runTime := rawConfig.Run.Until
-
-	reactionInfo := make(map[string]Reaction)
-	initialState := make(map[string]int)
-
-	for _, state := range rawConfig.States {
-		initialState[state.Name] = state.Value
-	}
-
-	for _, reaction := range rawConfig.Reactions {
-		_ = reaction
-		var inputCoefs []int
-		var inputSpecies []string
-		var outputCoefs []int
-		var outputSpecies []string
-		rateCoef, rateSpecies := multiplyStringParse(reaction.Rate)
-		for _, inputInfo := range reaction.Input {
-			coef, species := multiplyStringParse(inputInfo)
-			inputCoefs = append(inputCoefs, int(coef))
-			inputSpecies = append(inputSpecies, species...)
-		}
-
-		for _, outputInfo := range reaction.Output {
-			coef, species := multiplyStringParse(outputInfo)
-			outputCoefs = append(outputCoefs, int(coef))
-			outputSpecies = append(outputSpecies, species...)
-		}
-		reactionInfo[reaction.Name] = Reaction{
-			rate:               rateCoef,
-			rateSpecies:        rateSpecies,
-			inputSpeciesCount:  inputCoefs,
-			inputSpecies:       inputSpecies,
-			outputSpeciesCount: outputCoefs,
-			outputSpecies:      outputSpecies,
-		}
-
-	}
-
-	return reactionInfo, initialState, runTime
 }
 
 func main() {
